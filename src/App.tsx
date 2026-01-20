@@ -167,23 +167,12 @@ function App() {
     return sportStats.map((s) => s.sport);
   }, [sportStats]);
 
-  const ALL_SPORTS_OPTION = 'All Sports';
-
   const handleSportToggle = (sport: string) => {
-    if (sport === ALL_SPORTS_OPTION) {
-      // If "All Sports" is selected, unselect everything else
-      setSelectedSports([ALL_SPORTS_OPTION]);
-    } else {
-      // If an individual sport is selected, unselect "All Sports" and toggle the sport
-      setSelectedSports((prev) => {
-        const withoutAllSports = prev.filter((s) => s !== ALL_SPORTS_OPTION);
-        if (withoutAllSports.includes(sport)) {
-          return withoutAllSports.filter((s) => s !== sport);
-        } else {
-          return [...withoutAllSports, sport];
-        }
-      });
-    }
+    setSelectedSports((prev) =>
+      prev.includes(sport)
+        ? prev.filter((s) => s !== sport)
+        : [...prev, sport]
+    );
   };
 
   const handleSelectAllSports = () => {
@@ -193,8 +182,6 @@ function App() {
   const handleDeselectAllSports = () => {
     setSelectedSports([]);
   };
-
-  const isAllSportsSelected = selectedSports.includes(ALL_SPORTS_OPTION);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -349,18 +336,6 @@ function App() {
                     </div>
                   </div>
                   <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
-                    {/* All Sports option at the top */}
-                    <label
-                      className="flex items-center py-1 cursor-pointer hover:bg-gray-50 px-2 rounded border-b border-gray-200 mb-1 pb-2"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isAllSportsSelected}
-                        onChange={() => handleSportToggle(ALL_SPORTS_OPTION)}
-                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <span className="text-sm font-semibold text-gray-900">{ALL_SPORTS_OPTION}</span>
-                    </label>
                     {availableSports.map((sport) => (
                       <label
                         key={sport}
@@ -368,12 +343,11 @@ function App() {
                       >
                         <input
                           type="checkbox"
-                          checked={selectedSports.includes(sport) && !isAllSportsSelected}
+                          checked={selectedSports.includes(sport)}
                           onChange={() => handleSportToggle(sport)}
-                          disabled={isAllSportsSelected}
-                          className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                         />
-                        <span className={`text-sm text-gray-700 ${isAllSportsSelected ? 'opacity-50' : ''}`}>{sport}</span>
+                        <span className="text-sm text-gray-700">{sport}</span>
                       </label>
                     ))}
                   </div>
@@ -387,7 +361,6 @@ function App() {
                 sportStats={sportStats}
                 selectedSports={selectedSports}
                 yAxisType={yAxisType}
-                allSportsSelected={isAllSportsSelected}
               />
             </div>
 

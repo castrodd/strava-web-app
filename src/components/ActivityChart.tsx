@@ -27,10 +27,9 @@ interface ActivityChartProps {
   sportStats: SportYearlyStats[];
   selectedSports: string[];
   yAxisType: YAxisType;
-  allSportsSelected: boolean;
 }
 
-export function ActivityChart({ sportStats, selectedSports, yAxisType, allSportsSelected }: ActivityChartProps) {
+export function ActivityChart({ sportStats, selectedSports, yAxisType }: ActivityChartProps) {
   const chartData = useMemo(() => {
     // Get all unique years across all sports
     const allYears = new Set<number>();
@@ -39,26 +38,46 @@ export function ActivityChart({ sportStats, selectedSports, yAxisType, allSports
     });
     const sortedYears = Array.from(allYears).sort();
 
-    let datasets: any[];
+    // Filter to selected sports
+    const filteredStats = sportStats.filter(({ sport }) => selectedSports.includes(sport));
 
-    if (allSportsSelected) {
-      // Combine all sports into one unified dataset
-      const combinedYearlyStats = new Map<number, { distance: number; time: number }>();
-
-      // Aggregate all sports' data by year
-      sportStats.forEach(({ yearlyStats }) => {
-        yearlyStats.forEach(({ year, distance, time }) => {
-          const existing = combinedYearlyStats.get(year) || { distance: 0, time: 0 };
-          combinedYearlyStats.set(year, {
-            distance: existing.distance + distance,
-            time: existing.time + time,
-          });
+    // Calculate total line by combining selected sports
+    const combinedYearlyStats = new Map<number, { distance: number; time: number }>();
+    filteredStats.forEach(({ yearlyStats }) => {
+      yearlyStats.forEach(({ year, distance, time }) => {
+        const existing = combinedYearlyStats.get(year) || { distance: 0, time: 0 };
+        combinedYearlyStats.set(year, {
+          distance: existing.distance + distance,
+          time: existing.time + time,
         });
       });
+    });
 
-      // Create single dataset with combined data
+    // Create total dataset
+    const totalData = sortedYears.map((year) => {
+      const yearStat = combinedYearlyStats.get(year);
+      if (!yearStat) return null;
+
+      if (yAxisType === 'distance') {
+        return metersToKilometers(yearStat.distance);
+      } else {
+        return secondsToHours(yearStat.time);
+      }
+    });
+
+    // Create datasets for each selected sport
+    const colors = [
+      'rgb(75, 192, 192)',
+      'rgb(255, 99, 132)',
+      'rgb(54, 162, 235)',
+      'rgb(255, 206, 86)',
+      'rgb(153, 102, 255)',
+      'rgb(255, 159, 64)',
+    ];
+
+    const sportDatasets = filteredStats.map(({ sport, yearlyStats }, index) => {
       const data = sortedYears.map((year) => {
-        const yearStat = combinedYearlyStats.get(year);
+        const yearStat = yearlyStats.find((ys) => ys.year === year);
         if (!yearStat) return null;
 
         if (yAxisType === 'distance') {
@@ -68,56 +87,34 @@ export function ActivityChart({ sportStats, selectedSports, yAxisType, allSports
         }
       });
 
-      datasets = [
-        {
-          label: 'All Sports',
-          data,
-          borderColor: 'rgb(75, 192, 192)',
-          backgroundColor: 'rgb(75, 192, 192)40',
-          tension: 0.1,
-        },
-      ];
-    } else {
-      // Filter to selected sports
-      const filteredStats = sportStats.filter(({ sport }) => selectedSports.includes(sport));
+      return {
+        label: sport,
+        data,
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length] + '40',
+        tension: 0.1,
+      };
+    });
 
-      // Create datasets for each selected sport
-      const colors = [
-        'rgb(75, 192, 192)',
-        'rgb(255, 99, 132)',
-        'rgb(54, 162, 235)',
-        'rgb(255, 206, 86)',
-        'rgb(153, 102, 255)',
-        'rgb(255, 159, 64)',
-      ];
-
-      datasets = filteredStats.map(({ sport, yearlyStats }, index) => {
-        const data = sortedYears.map((year) => {
-          const yearStat = yearlyStats.find((ys) => ys.year === year);
-          if (!yearStat) return null;
-
-          if (yAxisType === 'distance') {
-            return metersToKilometers(yearStat.distance);
-          } else {
-            return secondsToHours(yearStat.time);
-          }
-        });
-
-        return {
-          label: sport,
-          data,
-          borderColor: colors[index % colors.length],
-          backgroundColor: colors[index % colors.length] + '40',
-          tension: 0.1,
-        };
-      });
-    }
+    // Combine total line (first) with individual sport lines
+    const datasets = [
+      {
+        label: 'Total',
+        data: totalData,
+        borderColor: 'rgb(34, 197, 94)',
+        backgroundColor: 'rgb(34, 197, 94)40',
+        borderWidth: 3,
+        borderDash: [],
+        tension: 0.1,
+      },
+      ...sportDatasets,
+    ];
 
     return {
       labels: sortedYears.map((y) => y.toString()),
       datasets,
     };
-  }, [sportStats, selectedSports, yAxisType, allSportsSelected]);
+  }, [sportStats, selectedSports, yAxisType]);
 
   const options = {
     responsive: true,
