@@ -165,31 +165,16 @@ export async function getValidAccessToken(
 }
 
 /**
- * Store client credentials (for development - in production, use environment variables)
+ * Get client credentials from environment variables
  */
-export function storeClientCredentials(clientId: string, clientSecret: string): void {
-  localStorage.setItem(CLIENT_ID_KEY, clientId);
-  localStorage.setItem(CLIENT_SECRET_KEY, clientSecret);
-}
-
-/**
- * Get stored client credentials
- */
-export function getStoredClientCredentials(): { clientId: string; clientSecret: string } | null {
-  const clientId = localStorage.getItem(CLIENT_ID_KEY);
-  const clientSecret = localStorage.getItem(CLIENT_SECRET_KEY);
+export function getClientCredentials(): { clientId: string; clientSecret: string } | null {
+  // Vite exposes env variables via import.meta.env
+  const clientId = import.meta.env.VITE_STRAVA_CLIENT_ID;
+  const clientSecret = import.meta.env.VITE_STRAVA_CLIENT_SECRET;
   
   if (!clientId || !clientSecret) {
     return null;
   }
   
   return { clientId, clientSecret };
-}
-
-/**
- * Clear client credentials
- */
-export function clearClientCredentials(): void {
-  localStorage.removeItem(CLIENT_ID_KEY);
-  localStorage.removeItem(CLIENT_SECRET_KEY);
 }

@@ -8,8 +8,7 @@ import {
   storeTokens,
   getStoredTokens,
   clearTokens,
-  storeClientCredentials,
-  getStoredClientCredentials,
+  getClientCredentials,
   getRedirectUri,
 } from './services/stravaOAuth';
 import { calculateSportYearlyStats } from './utils/dataProcessing';
@@ -22,9 +21,6 @@ function App() {
   const [yAxisType, setYAxisType] = useState<YAxisType>('distance');
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [clientId, setClientId] = useState('');
-  const [clientSecret, setClientSecret] = useState('');
-  const [showCredentialsForm, setShowCredentialsForm] = useState(false);
   const [hasInitializedSports, setHasInitializedSports] = useState(false);
 
   // Check for OAuth callback on mount
@@ -49,17 +45,7 @@ function App() {
 
   // Check if already authenticated
   useEffect(() => {
-    const credentials = getStoredClientCredentials();
     const tokens = getStoredTokens();
-
-    if (credentials) {
-      setClientId(credentials.clientId);
-      setClientSecret(credentials.clientSecret);
-      setShowCredentialsForm(false);
-    } else {
-      setShowCredentialsForm(true);
-    }
-
     if (tokens) {
       setIsAuthenticated(true);
     }
@@ -69,9 +55,9 @@ function App() {
     setLoading(true);
     setError(null);
 
-    const credentials = getStoredClientCredentials();
+    const credentials = getClientCredentials();
     if (!credentials) {
-      setError('Client credentials not found. Please enter them first.');
+      setError('Client credentials not configured. Please set VITE_STRAVA_CLIENT_ID and VITE_STRAVA_CLIENT_SECRET environment variables.');
       setLoading(false);
       return;
     }
@@ -100,21 +86,14 @@ function App() {
   };
 
   const handleConnect = () => {
-    if (!clientId.trim()) {
-      setError('Please enter your Client ID');
+    const credentials = getClientCredentials();
+    if (!credentials) {
+      setError('Client credentials not configured. Please set VITE_STRAVA_CLIENT_ID and VITE_STRAVA_CLIENT_SECRET environment variables.');
       return;
     }
-
-    if (!clientSecret.trim()) {
-      setError('Please enter your Client Secret');
-      return;
-    }
-
-    // Store credentials
-    storeClientCredentials(clientId, clientSecret);
 
     // Redirect to Strava authorization
-    const authUrl = getAuthorizationUrl(clientId);
+    const authUrl = getAuthorizationUrl(credentials.clientId);
     window.location.href = authUrl;
   };
 
@@ -127,9 +106,9 @@ function App() {
   };
 
   const loadActivities = async () => {
-    const credentials = getStoredClientCredentials();
+    const credentials = getClientCredentials();
     if (!credentials) {
-      setError('Client credentials not found');
+      setError('Client credentials not configured');
       return;
     }
 
@@ -194,78 +173,16 @@ function App() {
         {/* Authentication Section */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           {!isAuthenticated ? (
-            <>
-              {showCredentialsForm ? (
-                <>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    Strava API Setup
-                  </h2>
-                  <p className="text-sm text-gray-600 mb-4">
-                    To use this app, you need to create a Strava application and get your Client ID and Client Secret.
-                  </p>
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="clientId" className="block text-sm font-medium text-gray-700 mb-2">
-                        Client ID
-                      </label>
-                      <input
-                        id="clientId"
-                        type="text"
-                        value={clientId}
-                        onChange={(e) => setClientId(e.target.value)}
-                        placeholder="Enter your Strava Client ID"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="clientSecret" className="block text-sm font-medium text-gray-700 mb-2">
-                        Client Secret
-                      </label>
-                      <input
-                        id="clientSecret"
-                        type="password"
-                        value={clientSecret}
-                        onChange={(e) => setClientSecret(e.target.value)}
-                        placeholder="Enter your Strava Client Secret"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                      <p className="text-sm text-blue-800 mb-2">
-                        <strong>How to get your credentials:</strong>
-                      </p>
-                      <ol className="text-sm text-blue-700 list-decimal list-inside space-y-1">
-                        <li>Go to <a href="https://www.strava.com/settings/api" target="_blank" rel="noopener noreferrer" className="underline">Strava API Settings</a></li>
-                        <li>Create a new application or use an existing one</li>
-                        <li>Set the Authorization Callback Domain to: <code className="bg-blue-100 px-1 rounded">{window.location.hostname}</code></li>
-                        <li>Copy your Client ID and Client Secret</li>
-                      </ol>
-                      <p className="text-xs text-blue-600 mt-2">
-                        Note: Your credentials are stored locally in your browser and never shared.
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleConnect}
-                      disabled={loading || !clientId.trim() || !clientSecret.trim()}
-                      className="w-full px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    >
-                      Connect to Strava
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center">
-                  <p className="text-gray-700 mb-4">Ready to connect to Strava</p>
-                  <button
-                    onClick={handleConnect}
-                    disabled={loading}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Connecting...' : 'Connect to Strava'}
-                  </button>
-                </div>
-              )}
-            </>
+            <div className="text-center">
+              <p className="text-gray-700 mb-4">Connect to Strava to view your activity summary</p>
+              <button
+                onClick={handleConnect}
+                disabled={loading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Connecting...' : 'Connect to Strava'}
+              </button>
+            </div>
           ) : (
             <div className="flex justify-between items-center">
               <div>
