@@ -165,9 +165,9 @@ function App() {
     }
   }, [sportStats, hasInitializedSports]);
 
-  // Get all available sports
+  // Get all available sports, sorted alphabetically
   const availableSports = useMemo(() => {
-    return sportStats.map((s) => s.sport);
+    return sportStats.map((s) => s.sport).sort();
   }, [sportStats]);
 
   const handleSportToggle = (sport: string) => {
