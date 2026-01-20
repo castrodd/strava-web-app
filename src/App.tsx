@@ -249,7 +249,7 @@ function App() {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Select Sports
+                      Sports
                     </label>
                     <div className="flex gap-2">
                       <button
@@ -258,6 +258,7 @@ function App() {
                       >
                         Select All
                       </button>
+                       | 
                       <button
                         onClick={handleDeselectAllSports}
                         className="text-xs text-blue-600 hover:underline"
