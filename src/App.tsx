@@ -17,6 +17,7 @@ import type { StravaActivity, SportYearlyStats, YAxisType } from './types';
 function App() {
   const [activities, setActivities] = useState<StravaActivity[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [yAxisType, setYAxisType] = useState<YAxisType>('distance');
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
@@ -114,10 +115,13 @@ function App() {
 
     setLoading(true);
     setError(null);
+    setLoadingPage(1);
 
     try {
       const accessToken = await getValidAccessToken(credentials.clientId, credentials.clientSecret);
-      const data = await fetchActivities(accessToken);
+      const data = await fetchActivities(accessToken, (page) => {
+        setLoadingPage(page);
+      });
       setActivities(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch activities');
@@ -127,6 +131,7 @@ function App() {
       }
     } finally {
       setLoading(false);
+      setLoadingPage(null);
     }
   };
 
@@ -211,6 +216,12 @@ function App() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
             {error}
+          </div>
+        )}
+
+        {loading && loadingPage && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-6">
+            Loading athlete activities (page {loadingPage})...
           </div>
         )}
 

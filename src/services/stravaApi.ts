@@ -6,13 +6,21 @@ const STRAVA_API_BASE = 'https://www.strava.com/api/v3';
  * Fetches activities from Strava API
  * See: https://developers.strava.com/docs/reference/#api-Activities-getLoggedInAthleteActivities
  */
-export async function fetchActivities(accessToken: string): Promise<StravaActivity[]> {
+export async function fetchActivities(
+  accessToken: string,
+  onProgress?: (page: number) => void
+): Promise<StravaActivity[]> {
   const activities: StravaActivity[] = [];
   let page = 1;
   const perPage = 200;
 
   try {
     while (true) {
+      // Report progress
+      if (onProgress) {
+        onProgress(page);
+      }
+
       const response = await fetch(
         `${STRAVA_API_BASE}/athlete/activities?page=${page}&per_page=${perPage}`,
         {
