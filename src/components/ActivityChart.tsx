@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -30,6 +30,8 @@ interface ActivityChartProps {
 }
 
 export function ActivityChart({ sportStats, selectedSports, yAxisType }: ActivityChartProps) {
+  const [hoveredDatasetIndex, setHoveredDatasetIndex] = useState<number | null>(null);
+
   const chartData = useMemo(() => {
     // Get all unique years across all sports
     const allYears = new Set<number>();
@@ -87,23 +89,26 @@ export function ActivityChart({ sportStats, selectedSports, yAxisType }: Activit
         }
       });
 
+      const isHovered = hoveredDatasetIndex === index + 1; // +1 because Total is index 0
       return {
         label: sport,
         data,
         borderColor: colors[index % colors.length],
         backgroundColor: colors[index % colors.length] + '40',
+        borderWidth: isHovered ? 4 : 2,
         tension: 0.1,
       };
     });
 
     // Combine total line (first) with individual sport lines
+    const isTotalHovered = hoveredDatasetIndex === 0;
     const datasets = [
       {
         label: 'Total',
         data: totalData,
         borderColor: 'rgb(34, 197, 94)',
         backgroundColor: 'rgb(34, 197, 94)40',
-        borderWidth: 3,
+        borderWidth: isTotalHovered ? 6 : 3,
         borderDash: [],
         tension: 0.1,
       },
@@ -114,7 +119,7 @@ export function ActivityChart({ sportStats, selectedSports, yAxisType }: Activit
       labels: sortedYears.map((y) => y.toString()),
       datasets,
     };
-  }, [sportStats, selectedSports, yAxisType]);
+  }, [sportStats, selectedSports, yAxisType, hoveredDatasetIndex]);
 
   const options = {
     responsive: true,
@@ -122,6 +127,16 @@ export function ActivityChart({ sportStats, selectedSports, yAxisType }: Activit
     plugins: {
       legend: {
         position: 'top' as const,
+        onHover: (_event: any, legendItem: any) => {
+          // When hovering a legend item, highlight its dataset
+          if (typeof legendItem.datasetIndex === 'number') {
+            setHoveredDatasetIndex(legendItem.datasetIndex);
+          }
+        },
+        onLeave: () => {
+          // Reset when leaving the legend item
+          setHoveredDatasetIndex(null);
+        },
       },
       title: {
         display: true,
@@ -161,7 +176,10 @@ export function ActivityChart({ sportStats, selectedSports, yAxisType }: Activit
   };
 
   return (
-    <div className="w-full h-96">
+    <div 
+      className="w-full h-96"
+      onMouseLeave={() => setHoveredDatasetIndex(null)}
+    >
       <Line data={chartData} options={options} />
     </div>
   );
