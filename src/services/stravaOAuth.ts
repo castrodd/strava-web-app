@@ -4,8 +4,6 @@ const STRAVA_OAUTH_BASE = 'https://www.strava.com/oauth';
 const STRAVA_API_BASE = 'https://www.strava.com/api/v3';
 
 const STORAGE_KEY = 'strava_tokens';
-const CLIENT_ID_KEY = 'strava_client_id';
-const CLIENT_SECRET_KEY = 'strava_client_secret';
 
 /**
  * Get the redirect URI for OAuth callback
