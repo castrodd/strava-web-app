@@ -233,7 +233,7 @@ function App() {
                 {/* Y-Axis Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Y-Axis Metric
+                    Metric
                   </label>
                   <select
                     value={yAxisType}
@@ -249,7 +249,7 @@ function App() {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Sports to Display
+                      Select Sports
                     </label>
                     <div className="flex gap-2">
                       <button
