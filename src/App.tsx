@@ -1,6 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ActivityChart } from './components/ActivityChart';
 import { fetchActivities } from './services/stravaApi';
+import {
+  getAuthorizationUrl,
+  exchangeCodeForTokens,
+  getValidAccessToken,
+  storeTokens,
+  getStoredTokens,
+  clearTokens,
+  storeClientCredentials,
+  getStoredClientCredentials,
+  clearClientCredentials,
+  getRedirectUri,
+} from './services/stravaOAuth';
 import { calculateSportYearlyStats } from './utils/dataProcessing';
 import type { StravaActivity, SportYearlyStats, YAxisType } from './types';
 
@@ -8,9 +20,135 @@ function App() {
   const [activities, setActivities] = useState<StravaActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [accessToken, setAccessToken] = useState<string>('');
   const [yAxisType, setYAxisType] = useState<YAxisType>('distance');
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [showCredentialsForm, setShowCredentialsForm] = useState(false);
+
+  // Check for OAuth callback on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const errorParam = urlParams.get('error');
+
+    if (errorParam === 'access_denied') {
+      setError('Access denied. Please try again and grant the required permissions.');
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    if (code) {
+      handleOAuthCallback(code);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  // Check if already authenticated
+  useEffect(() => {
+    const credentials = getStoredClientCredentials();
+    const tokens = getStoredTokens();
+
+    if (credentials) {
+      setClientId(credentials.clientId);
+      setClientSecret(credentials.clientSecret);
+      setShowCredentialsForm(false);
+    } else {
+      setShowCredentialsForm(true);
+    }
+
+    if (tokens) {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleOAuthCallback = async (code: string) => {
+    setLoading(true);
+    setError(null);
+
+    const credentials = getStoredClientCredentials();
+    if (!credentials) {
+      setError('Client credentials not found. Please enter them first.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const tokenResponse = await exchangeCodeForTokens(
+        code,
+        credentials.clientId,
+        credentials.clientSecret
+      );
+
+      storeTokens({
+        access_token: tokenResponse.access_token,
+        refresh_token: tokenResponse.refresh_token,
+        expires_at: tokenResponse.expires_at,
+      });
+
+      setIsAuthenticated(true);
+      // Automatically load activities after successful auth
+      await loadActivities();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to exchange authorization code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConnect = () => {
+    if (!clientId.trim()) {
+      setError('Please enter your Client ID');
+      return;
+    }
+
+    if (!clientSecret.trim()) {
+      setError('Please enter your Client Secret');
+      return;
+    }
+
+    // Store credentials
+    storeClientCredentials(clientId, clientSecret);
+
+    // Redirect to Strava authorization
+    const authUrl = getAuthorizationUrl(clientId);
+    window.location.href = authUrl;
+  };
+
+  const handleDisconnect = () => {
+    clearTokens();
+    setIsAuthenticated(false);
+    setActivities([]);
+    setSelectedSports([]);
+  };
+
+  const loadActivities = async () => {
+    const credentials = getStoredClientCredentials();
+    if (!credentials) {
+      setError('Client credentials not found');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const accessToken = await getValidAccessToken(credentials.clientId, credentials.clientSecret);
+      const data = await fetchActivities(accessToken);
+      setActivities(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch activities');
+      if (err instanceof Error && err.message.includes('re-authenticate')) {
+        setIsAuthenticated(false);
+        clearTokens();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Calculate sport yearly stats
   const sportStats = useMemo<SportYearlyStats[]>(() => {
@@ -29,25 +167,6 @@ function App() {
   const availableSports = useMemo(() => {
     return sportStats.map((s) => s.sport);
   }, [sportStats]);
-
-  const handleLoadData = async () => {
-    if (!accessToken.trim()) {
-      setError('Please enter an access token');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const data = await fetchActivities(accessToken);
-      setActivities(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch activities');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSportToggle = (sport: string) => {
     setSelectedSports((prev) =>
@@ -70,42 +189,104 @@ function App() {
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Strava Activity Dashboard</h1>
 
-        {/* Access Token Input */}
+        {/* Authentication Section */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <label htmlFor="accessToken" className="block text-sm font-medium text-gray-700 mb-2">
-                Strava Access Token
-              </label>
-              <input
-                id="accessToken"
-                type="password"
-                value={accessToken}
-                onChange={(e) => setAccessToken(e.target.value)}
-                placeholder="Enter your Strava access token"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                onKeyDown={(e) => e.key === 'Enter' && handleLoadData()}
-              />
-              <p className="mt-2 text-sm text-gray-500">
-                Get your access token from{' '}
-                <a
-                  href="https://www.strava.com/settings/api"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
+          {!isAuthenticated ? (
+            <>
+              {showCredentialsForm ? (
+                <>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                    Strava API Setup
+                  </h2>
+                  <p className="text-sm text-gray-600 mb-4">
+                    To use this app, you need to create a Strava application and get your Client ID and Client Secret.
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="clientId" className="block text-sm font-medium text-gray-700 mb-2">
+                        Client ID
+                      </label>
+                      <input
+                        id="clientId"
+                        type="text"
+                        value={clientId}
+                        onChange={(e) => setClientId(e.target.value)}
+                        placeholder="Enter your Strava Client ID"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="clientSecret" className="block text-sm font-medium text-gray-700 mb-2">
+                        Client Secret
+                      </label>
+                      <input
+                        id="clientSecret"
+                        type="password"
+                        value={clientSecret}
+                        onChange={(e) => setClientSecret(e.target.value)}
+                        placeholder="Enter your Strava Client Secret"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                      <p className="text-sm text-blue-800 mb-2">
+                        <strong>How to get your credentials:</strong>
+                      </p>
+                      <ol className="text-sm text-blue-700 list-decimal list-inside space-y-1">
+                        <li>Go to <a href="https://www.strava.com/settings/api" target="_blank" rel="noopener noreferrer" className="underline">Strava API Settings</a></li>
+                        <li>Create a new application or use an existing one</li>
+                        <li>Set the Authorization Callback Domain to: <code className="bg-blue-100 px-1 rounded">{window.location.hostname}</code></li>
+                        <li>Copy your Client ID and Client Secret</li>
+                      </ol>
+                      <p className="text-xs text-blue-600 mt-2">
+                        Note: Your credentials are stored locally in your browser and never shared.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleConnect}
+                      disabled={loading || !clientId.trim() || !clientSecret.trim()}
+                      className="w-full px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      Connect to Strava
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center">
+                  <p className="text-gray-700 mb-4">Ready to connect to Strava</p>
+                  <button
+                    onClick={handleConnect}
+                    disabled={loading}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Connecting...' : 'Connect to Strava'}
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Connected to Strava</p>
+                <p className="text-xs text-gray-500">Redirect URI: <code>{getRedirectUri()}</code></p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={loadActivities}
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  Strava API Settings
-                </a>
-              </p>
+                  {loading ? 'Loading...' : 'Load Activities'}
+                </button>
+                <button
+                  onClick={handleDisconnect}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  Disconnect
+                </button>
+              </div>
             </div>
-            <button
-              onClick={handleLoadData}
-              disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Loading...' : 'Load Activities'}
-            </button>
-          </div>
+          )}
         </div>
 
         {error && (

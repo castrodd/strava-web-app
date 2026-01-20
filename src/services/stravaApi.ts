@@ -4,8 +4,7 @@ const STRAVA_API_BASE = 'https://www.strava.com/api/v3';
 
 /**
  * Fetches activities from Strava API
- * Note: You'll need to set up OAuth and get an access token
- * For now, this is a placeholder that shows the structure
+ * See: https://developers.strava.com/docs/reference/#api-Activities-getLoggedInAthleteActivities
  */
 export async function fetchActivities(accessToken: string): Promise<StravaActivity[]> {
   const activities: StravaActivity[] = [];
@@ -24,7 +23,28 @@ export async function fetchActivities(accessToken: string): Promise<StravaActivi
       );
 
       if (!response.ok) {
-        throw new Error(`Strava API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text().catch(() => 'Unknown error');
+        let errorMessage = `Strava API error: ${response.status} ${response.statusText}`;
+        
+        if (response.status === 401) {
+          errorMessage = 'Unauthorized: Invalid or expired access token. Please re-authenticate.';
+        } else if (response.status === 403) {
+          errorMessage = 'Forbidden: Access denied. Check your token permissions.';
+        }
+        
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.message) {
+            errorMessage += ` - ${errorJson.message}`;
+          }
+        } catch {
+          // Not JSON, use the text as is
+          if (errorText && errorText !== 'Unknown error') {
+            errorMessage += ` - ${errorText}`;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const pageActivities: StravaActivity[] = await response.json();
@@ -52,6 +72,7 @@ export async function fetchActivities(accessToken: string): Promise<StravaActivi
 
 /**
  * Get the current athlete's info
+ * See: https://developers.strava.com/docs/reference/#api-Athletes-getLoggedInAthlete
  */
 export async function getAthlete(accessToken: string) {
   const response = await fetch(`${STRAVA_API_BASE}/athlete`, {

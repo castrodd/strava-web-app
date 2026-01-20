@@ -30,3 +30,18 @@ export interface SportYearlyStats {
   sport: string;
   yearlyStats: YearlyStats[];
 }
+
+export interface StravaTokenResponse {
+  token_type: string;
+  expires_at: number;
+  expires_in: number;
+  refresh_token: string;
+  access_token: string;
+  athlete: StravaAthlete;
+}
+
+export interface StravaTokens {
+  access_token: string;
+  refresh_token: string;
+  expires_at: number;
+}

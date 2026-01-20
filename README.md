@@ -21,21 +21,28 @@ A TypeScript web application that fetches and visualizes Strava activity data wi
    npm install
    ```
 
-2. **Get your Strava Access Token**:
+2. **Create a Strava Application**:
    - Go to [Strava API Settings](https://www.strava.com/settings/api)
-   - Create an application if you haven't already
-   - Generate an access token with `read` permissions
-   - Copy the access token
+   - Click "Create App" or use an existing application
+   - Fill in the required fields:
+     - **Application Name**: Your app name
+     - **Category**: Choose appropriate category
+     - **Website**: Your website (can be `http://localhost:5173` for development)
+     - **Authorization Callback Domain**: Set to `localhost` (or your domain for production)
+   - Save and note your **Client ID** and **Client Secret**
 
 3. **Run the development server**:
    ```bash
    npm run dev
    ```
 
-4. **Open the app**:
+4. **Authenticate with Strava**:
    - Navigate to `http://localhost:5173` (or the URL shown in the terminal)
-   - Paste your Strava access token in the input field
-   - Click "Load Activities" to fetch your data
+   - Enter your **Client ID** and **Client Secret** from step 2
+   - Click "Connect to Strava"
+   - You'll be redirected to Strava to authorize the application
+   - After authorization, you'll be redirected back to the app
+   - The app will automatically load your activities
 
 ## Building for Production
 
@@ -63,15 +70,40 @@ src/
 
 ## Strava API Setup
 
-To use this app, you need a Strava API access token:
+This app uses OAuth 2.0 authentication as recommended by Strava. The authentication flow:
 
-1. Visit [Strava Developers](https://www.strava.com/settings/api)
-2. Create a new application
-3. Set the authorization callback domain (can be `localhost` for development)
-4. Generate an access token with `read` scope
-5. Copy the token and paste it into the app
+1. **User Authorization**: When you click "Connect to Strava", you're redirected to Strava's authorization page
+2. **Token Exchange**: After authorization, the app exchanges the authorization code for access and refresh tokens
+3. **Automatic Token Refresh**: Access tokens expire after 6 hours. The app automatically refreshes tokens using the refresh token when needed
 
-**Note**: Access tokens expire. For a production app, you'd want to implement OAuth flow for automatic token refresh.
+### OAuth Scopes
+
+The app requests the `activity:read_all` scope, which allows reading all activity data including private activities.
+
+### Security Notes
+
+- **Client Secret Storage**: For this single-page app, the client secret is stored in browser localStorage. This is acceptable for personal use but not recommended for production applications that serve multiple users.
+- **Token Storage**: Access tokens and refresh tokens are stored in browser localStorage
+- **Production**: For a production app serving multiple users, you should implement a backend server to securely handle the client secret and token exchange
+
+For more details, see the [Strava Authentication Documentation](https://developers.strava.com/docs/authentication/).
+
+## Troubleshooting
+
+### Common Errors
+
+- **401 Unauthorized**: Your access token has expired. The app should automatically refresh it. If the error persists, try disconnecting and reconnecting.
+- **403 Forbidden**: Your token doesn't have the required permissions. Make sure you granted the `activity:read_all` scope during authorization.
+- **"Access denied"**: You declined to authorize the application. Try connecting again and make sure to grant all requested permissions.
+- **"Client credentials not found"**: Make sure you've entered your Client ID and Client Secret before connecting.
+
+### OAuth Callback Issues
+
+If you're having trouble with the OAuth callback:
+
+1. Make sure the **Authorization Callback Domain** in your Strava app settings matches your domain (e.g., `localhost` for development)
+2. The redirect URI must match exactly - check the console for the redirect URI being used
+3. Clear your browser's localStorage if you're having persistent issues: Open browser console and run `localStorage.clear()`
 
 ## Technologies Used
 
