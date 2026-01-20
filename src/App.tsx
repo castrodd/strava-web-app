@@ -25,6 +25,7 @@ function App() {
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [showCredentialsForm, setShowCredentialsForm] = useState(false);
+  const [hasInitializedSports, setHasInitializedSports] = useState(false);
 
   // Check for OAuth callback on mount
   useEffect(() => {
@@ -122,6 +123,7 @@ function App() {
     setIsAuthenticated(false);
     setActivities([]);
     setSelectedSports([]);
+    setHasInitializedSports(false);
   };
 
   const loadActivities = async () => {
@@ -155,12 +157,13 @@ function App() {
     return calculateSportYearlyStats(activities);
   }, [activities]);
 
-  // Initialize selected sports when sportStats change
+  // Initialize selected sports when sportStats change (only on initial load)
   useEffect(() => {
-    if (sportStats.length > 0 && selectedSports.length === 0) {
+    if (sportStats.length > 0 && !hasInitializedSports) {
       setSelectedSports(sportStats.map((s) => s.sport));
+      setHasInitializedSports(true);
     }
-  }, [sportStats, selectedSports.length]);
+  }, [sportStats, hasInitializedSports]);
 
   // Get all available sports
   const availableSports = useMemo(() => {
